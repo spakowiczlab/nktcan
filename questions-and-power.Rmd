@@ -12,6 +12,7 @@ library(FDRsampsize)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(viridis)
 ```
 
 The following are a series of power calculations to support the study of NKTcells in cancer, citing a question of interest and then an analysis and associated sample size and power to address it.
@@ -19,25 +20,22 @@ The following are a series of power calculations to support the study of NKTcell
 # Do lymph nodes involved in tumors have more NKTcells than uninvolved lymph nodes?
 
 Important numbers for this calculation:
+
 * A lymph sampled by endobronchial ultrasound (EBUS) can sample 1e5 - 1e6 lymphocytes
-** of those an estimated 0.2% are NKTcells
+* Of those an estimated 0.2% are NKTcells
 * This is an intra-individual question, and therefore is expected to have relatively low coefficient of variation CV = 0.3-0.5
 
-## Do lymph nodes involved in tumors have a different composition of NKTcells than uninvolved lymph nodes?
-* NKTcells come in several subtypes, roughly <= 5 (e.g type I and type II) are expected
- 
 ```{r}
 # NKTcells collected per sample
 ebus.lymph <- 1e6
 lymph.nkt.frac <- 0.002
 nkt.col <- ebus.lymph * lymph.nkt.frac
 
-n.groups <- 2
-
 # Difference in the fraction of NKTcells, negative binomial distribution
 n <- seq(2, 25)
 log.fc <- seq(0.01, 1, by = 0.01)
 
+# Calculate power 
 power.l <- list()
 for (i in 1:length(n)) {
   power.l[[as.character(n[i])]] <- 
@@ -45,102 +43,41 @@ for (i in 1:length(n)) {
                alpha = 0.05, 
                log.fc = log.fc,
                mu = rep(nkt.col, length(log.fc)), 
-               sig = rep(0.5, length(log.fc)))
+               sig = rep(0.4, length(log.fc)))
 }
 
+# Convert to long-format data frame
 power.df <- 
   power.l %>%
   bind_rows() %>%
   mutate(log.fc = log.fc) %>%
   gather(n, power, -log.fc) %>%
   mutate(n = as.numeric(n)) %>%
-  mutate(fold.change = 10^log.fc)
+  mutate(fold.change = 2^log.fc)
 
+a1.rep <- 
+  power.df %>%
+  filter(power >= 0.8) %>%
+  filter(log.fc == 0.5) %>%
+  head(., 1)
+
+# Plot result
 power.df %>%
   ggplot(aes(x = n, y = log.fc, z = power)) +
-  geom_contour_filled() +
+  geom_raster(aes(fill = power)) +
   labs(x = "Sample Size",
        y = "Log Fold Change",
        fill = "Power") +
   theme_minimal() +
+  scale_fill_viridis() +
   geom_hline(aes(yintercept = 0.5), linetype = "dotted", alpha = 0.5) +
+  geom_vline(xintercept = a1.rep$n, linetype = "dotted", alpha = 0.5)
   ggsave("figures/nkt-diff_lymphnodes.png", height = 3, width = 4)
 
 ```
 
-```{r}
-i <- 3
-    power.hart(n = i, 
-               alpha = 0.05, 
-               log.fc = log.fc,
-               mu = rep(nkt.col, length(fold.change)), 
-               sig = rep(0.5, length(fold.change)))
- 
-    n.hart=2*(qnorm(0.975)+qnorm(0.9))^2*(1/20+0.6^2)/(log(2)^2) # Equation 6 of Hart et al
- power.hart(n.hart,
-            0.05,
-            log(2),
-            20,
-            0.6)                        # Recapitulate 90% power  
- res=fdr.sampsize(fdr=0.1,
-                  ave.pow=0.8,
-                  pow.func=power.hart,
-                  eff.size=rep(c(log(2),0),c(100,900)),
-                  null.effect=0,
-                  mu=5,
-                  sig=1)
- res
-```
+> The NKTcells will be calculated as a fraction of total lymphocytes. As such, power is estimated as a negative binomial distribution Wald test using the FDRsamplesize package in R. A sample size of `r a1.rep$n` is sufficient to detect a `r a1.rep$fold.change` fold change in NKTcell populations with `r a1.rep$power` ($\alpha$ = 0.05, coefficient of variation = 0.4). Code to reproduce all simulations and calculations is available at https://github.com/spakowiczlab/nktcan.
 
-A sample size of `ceiling(n)` is sufficient to detect a change of 1 standard deviation in NKTcell populations with 80% power (\alpha = .
-
-## Do lymph nodes involved in tumors have a different composition of NKTcells than uninvolved lymph nodes?
-
-* NKTcells come in several subtypes, roughly <= 5 (e.g type I and type II) are expected
-
-What fold change can be detected in the subtypes given that less is known about their abundances and distributions? 
-
-```{r}
-# Define the false positive rate
-sig.level <- 0.05
-num.tests <- 5
-typeIerror <- sig.level / num.tests
-
-# Sample size
-n.total <- 13
-
-# Define ranges of fold changes and coefficients of variation 
-# to calculate the power
-fold.change <- seq(1, 3, by = 0.01)
-coef.variation <- seq(0.1, 1, by = 0.01)
-
-power.l <- list()
-for (c in 1:length(coef.variation)) {
-  power.l[[as.character(coef.variation[c])]] <- 
-    power.hart(n = n.total, 
-               alpha = typeIerror, 
-               log.fc = log(fold.change),
-               mu = rep((nkt.col / num.tests), length(fold.change)), 
-               sig = rep(coef.variation[c], length(fold.change)))
-}
-
-# Reformat the list for plotting
-power.df <- bind_rows(power.l)
-power.df$fold.change <- fold.change
-
-# Plot as contour
-power.df %>%
-  gather(CV, Power, -fold.change) %>%
-  mutate(CV = as.numeric(CV)) %>%
-  ggplot(aes(x = fold.change, y = CV, z = Power)) +
-  geom_contour_filled() +
-  labs(x = "Fold Change",
-       y = "Coefficient of Variation",
-       fill = "Power") +
-  theme_minimal() +
-  geom_hline(aes(yintercept = 0.5), linetype = "dotted", alpha = 0.5) +
-  ggsave("../figures/nkt-subtypes-in-lymphnodes.png", height = 3, width = 4)
-```
 
 # Do cancer patients have increased numbers of circulating NKTcells?
 
@@ -154,10 +91,117 @@ There are three cohorts that could be used to address this question at OSU
 * 1-2% of lymphocytes are NKTcells
 
 ```{r}
-pbmcs.per.ml <- 90e6 / 12
+# NKTcells collected per 12 mL blood sample
+pbmc.cells <- 90e6
+lymphocyte.pmbc.frac <- 0.9
+nkt.of.lymphocytes <- 0.02
+nkt.in.sample <- pbmc.cells + lymphocyte.pmbc.frac * nkt.of.lymphocytes
+
+# Difference in the fraction of NKTcells, negative binomial distribution
+n <- seq(2, 50)
+log.fc <- seq(0.01, 1, by = 0.01)
+
+# Number of tests (all pairwise comparisons, three groups)
+n.tests <- 3
+
+# Calculate power 
+power.l <- list()
+for (i in 1:length(n)) {
+  power.l[[as.character(n[i])]] <- 
+    power.hart(n = i, 
+               alpha = 0.05/n.tests, 
+               log.fc = log.fc,
+               mu = rep(nkt.in.sample, length(log.fc)), 
+               sig = rep(0.6, length(log.fc)))
+}
+
+# Convert to long-format data frame
+power.df <- 
+  power.l %>%
+  bind_rows() %>%
+  mutate(log.fc = log.fc) %>%
+  gather(n, power, -log.fc) %>%
+  mutate(n = as.numeric(n)) %>%
+  mutate(fold.change = 2^log.fc)
+
+a2.rep <- 
+  power.df %>%
+  filter(power >= 0.8) %>%
+  filter(log.fc == 0.5) %>%
+  head(., 1)
+
+# Plot result
+power.df %>%
+  ggplot(aes(x = n, y = log.fc, z = power)) +
+  geom_raster(aes(fill = power)) +
+  labs(x = "Sample Size",
+       y = "Log Fold Change",
+       fill = "Power") +
+  theme_minimal() +
+  scale_fill_viridis() +
+  geom_hline(aes(yintercept = 0.5), linetype = "dotted", alpha = 0.5) +
+  geom_vline(xintercept = a2.rep$n, linetype = "dotted", alpha = 0.5)
+  ggsave("figures/nkt-diff_pbmcs.png", height = 3, width = 4)
+```
+
+> In the context of detecting differences between three groups (cancer, high-risk and healthy), a sample size of `r a2.rep$n` is sufficient to detect a `r a2.rep$fold.change` fold change in NKTcell populations with `r a2.rep$power` ($\alpha$ = 0.05, coefficient of variation = 0.6).
 
 
+## What is the smallest subpopulation of NKTcells that could be analyzed with this blood sample size?
+
+* NKTcells come in several subtypes, roughly <= 5 (e.g type I and type II) are expected
+
+```{r}
+# NKTcells collected per 12 mL blood sample
+nkt.subpop.frac <- seq(.01, .50, by = 0.01) # percent of total
+nkt.subpop.n <- nkt.in.sample * nkt.subpop.frac
+
+# Difference in the fraction of NKTcells, negative binomial distribution
+n <- a2.rep$n
+
+# Number of tests (all pairwise comparisons, three groups)
+n.tests <- 3
+
+# Calculate power 
+power.l <- list()
+for (i in 1:length(nkt.subpop.n)) {
+  power.l[[as.character(nkt.subpop.n[i])]] <- 
+    power.hart(n = i, 
+               alpha = 0.05/n.tests, 
+               log.fc = log.fc,
+               mu = rep(nkt.subpop.n[i], length(log.fc)), 
+               sig = rep(0.6, length(log.fc)))
+}
+
+# Convert to long-format data frame
+power.df <- 
+  power.l %>%
+  bind_rows() %>%
+  mutate(log.fc = log.fc) %>%
+  gather(n, power, -log.fc) %>%
+  mutate(n.nkt.subpop = as.numeric(n)) %>%
+  mutate(nkt.subpop.fraction = n.nkt.subpop / nkt.in.sample) %>%
+  mutate(fold.change = 2^log.fc)
+
+a2.1.rep <- 
+  power.df %>%
+  filter(power >= 0.8) %>%
+  filter(log.fc == 0.5) %>%
+  head(., 1)
+
+# Plot result
+power.df %>%
+  ggplot(aes(x = nkt.subpop.fraction, y = log.fc, z = power)) +
+  geom_raster(aes(fill = power)) +
+  labs(x = "Fraction of total NKT cells in subpopulation",
+       y = "Log Fold Change",
+       fill = "Power") +
+  theme_minimal() +
+  scale_fill_viridis() +
+  geom_hline(aes(yintercept = 0.5), linetype = "dotted", alpha = 0.5) +
+  geom_vline(xintercept = a2.1.rep$nkt.subpop.fraction, linetype = "dotted", alpha = 0.5) +
+  ggsave("figures/nkt-subpop_pbmcs.png", height = 3, width = 4)
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+A subpopulation that is `r a2.1.rep$nkt.subpop.fraction *100`% of the total isolated NKTcells could be detected as different from the other groups with `r a2.1.rep$power` power. 
