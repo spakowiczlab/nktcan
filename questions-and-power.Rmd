@@ -95,7 +95,7 @@ There are three cohorts that could be used to address this question at OSU
 pbmc.cells <- 90e6
 lymphocyte.pmbc.frac <- 0.9
 nkt.of.lymphocytes <- 0.02
-nkt.in.sample <- pbmc.cells + lymphocyte.pmbc.frac * nkt.of.lymphocytes
+nkt.in.sample <- pbmc.cells * lymphocyte.pmbc.frac * nkt.of.lymphocytes
 
 # Difference in the fraction of NKTcells, negative binomial distribution
 n <- seq(2, 50)
