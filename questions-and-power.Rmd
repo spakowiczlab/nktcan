@@ -205,3 +205,47 @@ power.df %>%
 ```
 
 A subpopulation that is `r a2.1.rep$nkt.subpop.fraction *100`% of the total isolated NKTcells could be detected as different from the other groups with `r a2.1.rep$power` power. 
+
+# Differences in the diversity of TCR-seq
+
+```{r}
+# Blood
+pwr::pwr.t.test(n = 32,
+                d = NULL,
+                sig.level = 0.05,
+                power = 0.8,
+                type = "two.sample",
+                alternative = "two.sided")
+```
+
+```{r}
+pwr::pwr.t.test(n = 12,
+                d = NULL,
+                sig.level = 0.05,
+                power = 0.8,
+                type = "two.sample",
+                alternative = "two.sided")
+```
+
+# Cytokines
+
+```{r}
+n.tests <- 6
+
+# Blood 
+pwr::pwr.t.test(n = 12,
+                d = NULL,
+                sig.level = 0.05 / n.tests,
+                power = 0.8,
+                type = "two.sample",
+                alternative = "two.sided")
+
+# Lymph nodes
+pwr::pwr.t.test(n = 32,
+                d = NULL,
+                sig.level = 0.05 / n.tests,
+                power = 0.8,
+                type = "two.sample",
+                alternative = "two.sided")
+```
+
