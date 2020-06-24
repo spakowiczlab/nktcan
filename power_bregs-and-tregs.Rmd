@@ -1,0 +1,144 @@
+---
+title: "Bregs and Tregs in lymph nodes"
+author: "Daniel Spakowicz"
+date: "6/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(FDRsampsize)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(viridis)
+```
+
+The following are a series of power calculations to support the study of Breg and Treg cells in cancer, citing a question of interest and then an analysis and associated sample size and power to address it.
+
+# Do lymph nodes involved in tumors have more Breg cells than uninvolved lymph nodes?
+
+Important numbers for this calculation:
+
+* A lymph sampled by endobronchial ultrasound (EBUS) can sample 1e5 - 1e6 lymphocytes
+* Of those an estimated 40% are B cells, with 2-5% of those being Bregs.
+* This is an intra-individual question, and therefore is expected to have relatively low coefficient of variation CV = 0.3-0.5
+
+```{r}
+# Breg cells collected per sample
+ebus.lymph <- 1e6
+lymph.b.frac <- .4
+breg.frac <- .02
+breg.col <- ebus.lymph * lymph.b.frac * breg.frac
+
+# Difference in the fraction of Breg cells, negative binomial distribution
+n <- seq(2, 25)
+log.fc <- seq(0.01, 1, by = 0.01)
+
+# Calculate power 
+power.l <- list()
+for (i in 1:length(n)) {
+  power.l[[as.character(n[i])]] <- 
+    power.hart(n = i, 
+               alpha = 0.05, 
+               log.fc = log.fc,
+               mu = rep(breg.col, length(log.fc)), 
+               sig = rep(0.4, length(log.fc)))
+}
+
+# Convert to long-format data frame
+power.df <- 
+  power.l %>%
+  bind_rows() %>%
+  mutate(log.fc = log.fc) %>%
+  gather(n, power, -log.fc) %>%
+  mutate(n = as.numeric(n)) %>%
+  mutate(fold.change = 2^log.fc)
+
+a1.rep <- 
+  power.df %>%
+  filter(power >= 0.8) %>%
+  filter(log.fc == 0.5) %>%
+  head(., 1)
+
+# Plot result
+power.df %>%
+  ggplot(aes(x = n, y = log.fc, z = power)) +
+  geom_raster(aes(fill = power)) +
+  labs(x = "Sample Size",
+       y = "Log Fold Change",
+       fill = "Power") +
+  theme_minimal() +
+  scale_fill_viridis() +
+  geom_hline(aes(yintercept = 0.5), linetype = "dotted", alpha = 0.5) +
+  geom_vline(xintercept = a1.rep$n, linetype = "dotted", alpha = 0.5) +
+  ggsave("figures/breg-diff_lymphnodes.png", height = 3, width = 4)
+
+```
+
+> The Breg cells will be calculated as a fraction of total lymphocytes. As such, power is estimated as a negative binomial distribution Wald test using the FDRsamplesize package in R. A sample size of `r a1.rep$n` is sufficient to detect a `r a1.rep$fold.change` fold change in NKTcell populations with `r a1.rep$power` ($\alpha$ = 0.05, coefficient of variation = 0.4). Code to reproduce all simulations and calculations is available at https://github.com/spakowiczlab/nktcan.
+
+
+# Do lymph nodes involved in tumors have more Breg cells than uninvolved lymph nodes?
+
+Important numbers for this calculation:
+
+* A lymph sampled by endobronchial ultrasound (EBUS) can sample 1e5 - 1e6 lymphocytes
+* Of those an estimated 50% are T cells, with 5-7% of those being Tregs
+* This is an intra-individual question, and therefore is expected to have relatively low coefficient of variation CV = 0.3-0.5
+
+```{r}
+# Breg cells collected per sample
+ebus.lymph <- 1e6
+lymph.t.frac <- .5
+treg.frac <- .05
+treg.col <- ebus.lymph * lymph.t.frac * treg.frac
+
+# Difference in the fraction of Treg cells, negative binomial distribution
+n <- seq(2, 25)
+log.fc <- seq(0.01, 1, by = 0.01)
+
+# Calculate power 
+power.l <- list()
+for (i in 1:length(n)) {
+  power.l[[as.character(n[i])]] <- 
+    power.hart(n = i, 
+               alpha = 0.05, 
+               log.fc = log.fc,
+               mu = rep(treg.col, length(log.fc)), 
+               sig = rep(0.4, length(log.fc)))
+}
+
+# Convert to long-format data frame
+power.df <- 
+  power.l %>%
+  bind_rows() %>%
+  mutate(log.fc = log.fc) %>%
+  gather(n, power, -log.fc) %>%
+  mutate(n = as.numeric(n)) %>%
+  mutate(fold.change = 2^log.fc)
+
+a1.rep <- 
+  power.df %>%
+  filter(power >= 0.8) %>%
+  filter(log.fc == 0.5) %>%
+  head(., 1)
+
+# Plot result
+power.df %>%
+  ggplot(aes(x = n, y = log.fc, z = power)) +
+  geom_raster(aes(fill = power)) +
+  labs(x = "Sample Size",
+       y = "Log Fold Change",
+       fill = "Power") +
+  theme_minimal() +
+  scale_fill_viridis() +
+  geom_hline(aes(yintercept = 0.5), linetype = "dotted", alpha = 0.5) +
+  geom_vline(xintercept = a1.rep$n, linetype = "dotted", alpha = 0.5) +
+  ggsave("figures/treg-diff_lymphnodes.png", height = 3, width = 4)
+
+```
+
+> The Treg cells will be calculated as a fraction of total lymphocytes. As such, power is estimated as a negative binomial distribution Wald test using the FDRsamplesize package in R. A sample size of `r a1.rep$n` is sufficient to detect a `r a1.rep$fold.change` fold change in NKTcell populations with `r a1.rep$power` ($\alpha$ = 0.05, coefficient of variation = 0.4). Code to reproduce all simulations and calculations is available at https://github.com/spakowiczlab/nktcan.
+
