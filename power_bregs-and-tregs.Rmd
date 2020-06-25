@@ -1,6 +1,6 @@
 ---
 title: "Bregs and Tregs in lymph nodes"
-author: "Daniel Spakowicz"
+author: "Daniel Spakowicz and Rebecca Hoyd"
 date: "6/24/2020"
 output: html_document
 ---
@@ -21,7 +21,7 @@ The following are a series of power calculations to support the study of Breg an
 
 Important numbers for this calculation:
 
-* A lymph sampled by endobronchial ultrasound (EBUS) can sample 1e5 - 1e6 lymphocytes
+* A surgically-resected lymph can yield 1e5 - 1e6 lymphocytes
 * Of those an estimated 40% are B cells, with 2-5% of those being Bregs.
 * This is an intra-individual question, and therefore is expected to have relatively low coefficient of variation CV = 0.3-0.5
 
@@ -77,19 +77,19 @@ power.df %>%
 
 ```
 
-> The Breg cells will be calculated as a fraction of total lymphocytes. As such, power is estimated as a negative binomial distribution Wald test using the FDRsamplesize package in R. A sample size of `r a1.rep$n` is sufficient to detect a `r a1.rep$fold.change` fold change in NKTcell populations with `r a1.rep$power` ($\alpha$ = 0.05, coefficient of variation = 0.4). Code to reproduce all simulations and calculations is available at https://github.com/spakowiczlab/nktcan.
+> The Breg cells will be calculated as a fraction of total lymphocytes. As such, power is estimated as a negative binomial distribution Wald test using the FDRsamplesize package in R. A sample size of `r a1.rep$n` is sufficient to detect a `r round(a1.rep$fold.change, 2)` fold change in NKTcell populations with `r round(a1.rep$power, 2) * 100`% power ($\alpha$ = 0.05, coefficient of variation = 0.4). Code to reproduce all simulations and calculations is available at https://github.com/spakowiczlab/nktcan.
 
 
-# Do lymph nodes involved in tumors have more Breg cells than uninvolved lymph nodes?
+# Do lymph nodes involved in tumors have more Treg cells than uninvolved lymph nodes?
 
 Important numbers for this calculation:
 
-* A lymph sampled by endobronchial ultrasound (EBUS) can sample 1e5 - 1e6 lymphocytes
+* A surgically-resected lymph can yield 1e5 - 1e6 lymphocytes
 * Of those an estimated 50% are T cells, with 5-7% of those being Tregs
 * This is an intra-individual question, and therefore is expected to have relatively low coefficient of variation CV = 0.3-0.5
 
 ```{r}
-# Breg cells collected per sample
+# Treg cells collected per sample
 ebus.lymph <- 1e6
 lymph.t.frac <- .5
 treg.frac <- .05
@@ -140,5 +140,5 @@ power.df %>%
 
 ```
 
-> The Treg cells will be calculated as a fraction of total lymphocytes. As such, power is estimated as a negative binomial distribution Wald test using the FDRsamplesize package in R. A sample size of `r a1.rep$n` is sufficient to detect a `r a1.rep$fold.change` fold change in NKTcell populations with `r a1.rep$power` ($\alpha$ = 0.05, coefficient of variation = 0.4). Code to reproduce all simulations and calculations is available at https://github.com/spakowiczlab/nktcan.
+> The Treg cells will be calculated as a fraction of total lymphocytes. As such, power is estimated as a negative binomial distribution Wald test using the FDRsamplesize package in R. A sample size of `r a1.rep$n` is sufficient to detect a `r round(a1.rep$fold.change, 2)` fold change in NKTcell populations with `r round(a1.rep$power, 2) * 100`% power ($\alpha$ = 0.05, coefficient of variation = 0.4). Code to reproduce all simulations and calculations is available at https://github.com/spakowiczlab/nktcan.
 
